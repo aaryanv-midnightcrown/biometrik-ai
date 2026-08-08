@@ -26,11 +26,11 @@
     body { background-color: var(--bg); color: var(--text); overflow-x: hidden; }
 
     /* --- View Management (Transitions) --- */
-    .view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; transition: opacity 0.4s var(--ui-ease), transform 0.4s var(--ui-ease); opacity: 0; transform: translateY(20px); }
-    .view.active { display: flex; flex-direction: column; opacity: 1; transform: translateY(0px); }
+    .view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; transition: opacity 0.4s var(--ui-ease), transform 0.4s var(--ui-ease); opacity: 0; transform: translateY(20px); pointer-events: none; }
+    .view.active { display: flex; flex-direction: column; opacity: 1; transform: translateY(0px); pointer-events: auto; }
 
     /* --- Header UI (Main App Views) --- */
-    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid var(--border); background: #0d1117; z-index: 10; }
+    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid var(--border); background: #0d1117; z-index: 100; position: relative; }
     header h1 { color: var(--text-bright); font-size: 1.25rem; display: flex; align-items: center; gap: 8px; }
     .badge { background: #1f6feb; color: white; font-size: 0.7rem; padding: 1px 6px; border-radius: 12px; }
 
@@ -40,7 +40,7 @@
     .tab-btn.active { background: var(--card-bg); border-color: var(--border); color: var(--text-bright); font-weight: 600; }
 
     /* --- Standard Layout & Grid --- */
-    .app-content { flex: 1; padding: 20px 30px; overflow-y: auto; }
+    .app-content { flex: 1; padding: 20px 30px; overflow-y: auto; position: relative; z-index: 10; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; transition: border-color 0.3s; }
     .card.highlight-green { border-color: var(--accent-green); }
@@ -48,12 +48,12 @@
     .card h2 { color: var(--text-bright); font-size: 1rem; margin-bottom: 15px; font-weight: 600;}
 
     /* --- 1. HOME VIEW (Simplistic, Neat Page) --- */
-    #view-home { background: radial-gradient(circle at 50% 50%, #161b22 0%, #0d1117 100%); justify-content: center; align-items: center; text-align: center; }
-    #view-home h1 { font-size: 2.5rem; font-weight: 800; color: #fff; margin-bottom: 10px; }
-    #view-home p { color: #8b949e; font-size: 1rem; max-width: 400px; margin-bottom: 30px; line-height: 1.5; }
+    #view-home { background: radial-gradient(circle at 50% 50%, #161b22 0%, #0d1117 100%); justify-content: center; align-items: center; text-align: center; position: absolute; z-index: 10; }
+    #view-home h1 { font-size: 2.5rem; font-weight: 800; color: #fff; margin-bottom: 10px; position: relative; z-index: 20; }
+    #view-home p { color: #8b949e; font-size: 1rem; max-width: 400px; margin-bottom: 30px; line-height: 1.5; position: relative; z-index: 20; }
 
-    /* Simplistic Background Particles (Ambient Movement every 5s) */
-    .ambient-grid { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0.2; background-size: 30px 30px; background-image: radial-gradient(#30363d 1px, transparent 1px); }
+    /* Background Particles (Fixed with pointer-events: none) */
+    .ambient-grid { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0.2; background-size: 30px 30px; background-image: radial-gradient(#30363d 1px, transparent 1px); pointer-events: none; z-index: 1; }
     
     @keyframes constellation { 
       0%, 100% { transform: translate(0, 0); opacity: 0.2; }
@@ -110,7 +110,7 @@
     .ex-accent { color: var(--accent-green); font-weight: 500;}
 
     /* --- Global Elements (Buttons) --- */
-    .btn-main { padding: 12px 24px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: 0.2s var(--ui-ease); text-transform: uppercase; letter-spacing: 0.5px;}
+    .btn-main { position: relative; z-index: 20; pointer-events: auto; padding: 12px 24px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: 0.2s var(--ui-ease); text-transform: uppercase; letter-spacing: 0.5px;}
     .btn-green { background: var(--accent-green); color: white; border-color: #2da44e; }
     .btn-green:hover { background: #2da44e; box-shadow: 0 4px 12px rgba(45, 164, 78, 0.3); }
     
@@ -210,7 +210,6 @@
             <option value="185">185 lbs (Benchmark)</option>
             <option value="225">225 lbs</option>
             <option value="275">275 lbs</option>
-            <option value="custom">Custom...</option>
           </select>
         </div>
 
@@ -222,7 +221,6 @@
             <option value="225">225 lbs (Benchmark)</option>
             <option value="275">275 lbs</option>
             <option value="315">315 lbs</option>
-            <option value="custom">Custom...</option>
           </select>
         </div>
 
@@ -234,7 +232,6 @@
             <option value="275">275 lbs (Benchmark)</option>
             <option value="315">315 lbs</option>
             <option value="405">405 lbs</option>
-            <option value="custom">Custom...</option>
           </select>
         </div>
 
@@ -274,22 +271,27 @@
       deadlift: 'na'
     };
 
+    // Start App from Home Page
+    function startApp() {
+      appSwitchTab('scan');
+      startCamera();
+    }
+
     // Global View Management
     function appSwitchTab(viewName) {
-      // Hide home/header logic
       if (viewName === 'scan' || viewName === 'prs' || viewName === 'routine') {
         document.getElementById('main-header').style.display = 'flex';
         document.getElementById('view-home').classList.remove('active');
       }
 
-      // Deactivate all views and tabs
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
-      // Activate selected
-      document.getElementById('view-' + viewName).classList.add('active');
-      const btn = document.getElementById('btn-' + viewName);
-      if(btn) btn.classList.add('active');
+      const targetView = document.getElementById('view-' + viewName);
+      if (targetView) targetView.classList.add('active');
+
+      const targetBtn = document.getElementById('btn-' + viewName);
+      if (targetBtn) targetBtn.classList.add('active');
     }
 
     // MediaPipe Pose Setup
@@ -304,11 +306,10 @@
     pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     pose.onResults(onResults);
 
-    // --- Automatic Scan Termination Logic ---
     let stabilizationHistory = [];
-    const HISTORY_LENGTH = 30; // Check last 30 frames
-    const STABILIZATION_THRESHOLD = 0.008; // Std Deviation max allowable variation
-    const FRAMES_TO_CONFIRM = 15; // Consecutive 'good' frames required
+    const HISTORY_LENGTH = 30;
+    const STABILIZATION_THRESHOLD = 0.008;
+    const FRAMES_TO_CONFIRM = 15;
     let consecutiveGoodFrames = 0;
 
     function onResults(results) {
@@ -324,25 +325,20 @@
         const leftShoulder = lm[11], rightShoulder = lm[12];
         const leftHip = lm[23], rightHip = lm[24];
 
-        // 1. Calculate Torso Height (Normalized Baseline)
         const torsoHeight = Math.abs((leftHip.y + rightHip.y)/2 - (leftShoulder.y + rightShoulder.y)/2);
         
-        // 2. Normalized Widths & V-Taper Ratio
         const shoulderWidth = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
         const hipWidth = Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y);
         const vTaper = (shoulderWidth / (hipWidth || 0.001)).toFixed(2);
         
-        // 3. Symmetry (Shoulder Tilt Degree)
         const tiltAngle = Math.abs((Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x) * (180 / Math.PI)).toFixed(1));
 
-        // Update State & UI (Normalized measurements)
         systemState.vTaper = parseFloat(vTaper);
         systemState.tiltDeg = parseFloat(tiltAngle);
         document.getElementById('v-taper-val').innerText = vTaper;
         document.getElementById('tilt-val').innerText = `${tiltAngle}°`;
         document.getElementById('torso-val').innerText = torsoHeight.toFixed(3);
 
-        // --- Algorithmic Stabilization Check ---
         checkStabilization(systemState.vTaper);
       }
       canvasCtx.restore();
@@ -353,7 +349,6 @@
       if (stabilizationHistory.length > HISTORY_LENGTH) stabilizationHistory.shift();
 
       if (stabilizationHistory.length === HISTORY_LENGTH) {
-        // Calculate Standard Deviation of last 30 frames
         const mean = stabilizationHistory.reduce((a, b) => a + b) / HISTORY_LENGTH;
         const stdDev = Math.sqrt(stabilizationHistory.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / HISTORY_LENGTH);
 
@@ -361,22 +356,18 @@
         const fill = document.getElementById('stabilize-progress');
         const scannerCard = document.getElementById('scanner-card');
 
-        // Logic check: If variation is low (meaning user is holding pose)
         if (stdDev < STABILIZATION_THRESHOLD) {
           consecutiveGoodFrames++;
           overlay.style.display = 'flex';
           scannerCard.classList.add('highlight-orange');
 
-          // Progress bar based on frames needed to confirm
           const progressPercent = (consecutiveGoodFrames / FRAMES_TO_CONFIRM) * 100;
           fill.style.width = `${progressPercent}%`;
 
-          // Check if stable for required duration
           if (consecutiveGoodFrames >= FRAMES_TO_CONFIRM) {
-            autoEndScan(); // Termination
+            autoEndScan();
           }
         } else {
-          // User moved too much, reset count
           consecutiveGoodFrames = 0;
           overlay.style.display = 'none';
           fill.style.width = '0%';
@@ -388,10 +379,9 @@
     function startCamera() {
       systemState.isScanLive = true;
       systemState.isStabilized = false;
-      stabilizationHistory = []; // Reset history
+      stabilizationHistory = [];
       consecutiveGoodFrames = 0;
       document.getElementById('btn-start-camera').style.display = 'none';
-      document.getElementById('metrics-card').style.opacity = 1;
 
       const camera = new Camera(videoElement, {
         onFrame: async () => { if(systemState.isScanLive) await pose.send({ image: videoElement }); },
@@ -401,40 +391,30 @@
     }
 
     function autoEndScan() {
-      // 1. Programmatically kill camera/pose processing
       systemState.isScanLive = false;
       systemState.isStabilized = true;
-      videoElement.pause(); // Stop video stream visually
+      videoElement.pause();
       
-      // 2. Clear UI overlays
       document.getElementById('stabilizing-overlay').style.display = 'none';
       document.getElementById('scanner-card').classList.remove('highlight-orange');
       document.getElementById('scanner-card').classList.add('highlight-green');
 
-      // 3. Show Closing Summary Screen
       document.getElementById('canvas_output').style.display = 'none';
       document.getElementById('webcam').style.display = 'none';
       document.getElementById('closing-summary').style.display = 'flex';
 
-      // Lock final metrics
       document.getElementById('final-vtaper').innerText = systemState.vTaper;
       document.getElementById('final-tilt').innerText = `${systemState.tiltDeg}°`;
     }
 
-
-    // =========================================================================
-    // Dynamic Recommendation Logic Engine
-    // =========================================================================
     function generateRoutine() {
-      // Collect inputs from Select Matrix
       systemState.bench = document.getElementById('pr-bench').value;
       systemState.squat = document.getElementById('pr-squat').value;
       systemState.deadlift = document.getElementById('pr-deadlift').value;
 
       let diagnosisAlerts = [];
-      let trainingTier = 'introductory'; // Default if inputs are N/A
+      let trainingTier = 'introductory';
 
-      // Diagnostic & Volume Routing Rules
       if (systemState.vTaper < 1.3) {
         diagnosisAlerts.push("Priority: Lateral Deltoid/Latissimus Volume (Narrow V-Taper detected).");
       }
@@ -442,7 +422,6 @@
         diagnosisAlerts.push("Priority: Unilateral Stabilization (Structural Asymmetry found).");
       }
 
-      // Check for advanced math eligibility (Is there any data?)
       if (systemState.bench !== 'na' && systemState.squat !== 'na') {
         const benchToSquatRatio = parseFloat(systemState.bench) / parseFloat(systemState.squat);
         trainingTier = 'intermediate';
@@ -454,7 +433,6 @@
         diagnosisAlerts.push("Tier Locked: Introductory Protocol. Inputs suggest N/A or missing performance data; focusing on adaptation and safe technique.");
       }
 
-      // Generate Routine UI
       const container = document.getElementById('routine-container');
       container.innerHTML = `
         <div style="background: #1f6feb11; border: 1px solid #1f6feb66; padding: 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem;">
@@ -467,19 +445,16 @@
         ${buildTrainingPlan(trainingTier)}
       `;
 
-      // Jump to routine tab
       appSwitchTab('routine');
     }
 
-    // Dynamic Helper to build the daily plan based on 'na' analysis
     function buildTrainingPlan(tier) {
-      // Helper function to format main lifts based on tier (N/A vs Number)
       const formatLift = (prVal, sets, reps, intensity) => {
         if (prVal === 'na') {
-          return `<span class="ex-accent">Starter Weight</span> (${intensity})`; // Introductory Safe Route
+          return `<span class="ex-accent">Starter Weight</span> (${intensity})`;
         } else {
           const pr = parseFloat(prVal);
-          return `${(pr * 0.75).toFixed(0)} lbs (${reps} Reps) x ${sets} Sets`; // Linear Math Route
+          return `${(pr * 0.75).toFixed(0)} lbs (${reps} Reps) x ${sets} Sets`;
         }
       };
 
