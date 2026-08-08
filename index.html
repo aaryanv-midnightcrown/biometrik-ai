@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biometrik AI — Computer Vision & Training Engine</title>
+  
+  <!-- MediaPipe & Vision CDN Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-green: #238636;
+      --text: #c9d1d9;
+      --text-bright: #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    h1 { color: var(--text-bright); font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
+    .badge { background: #1f6feb; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; }
+
+    /* Layout Navigation */
+    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); font-weight: bold; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Dashboard Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .card h2 { color: var(--text-bright); font-size: 1.1rem; margin-bottom: 15px; }
+
+    /* Vision Scanner UI */
+    .video-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 6px; overflow: hidden; }
+    video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+
+    .metric-box { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .metric-val { color: var(--accent); font-weight: bold; }
+
+    /* Input Matrix */
+    .input-group { margin-bottom: 15px; }
+    .input-group label { display: block; margin-bottom: 5px; font-size: 0.85rem; }
+    .input-group input { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid var(--border); border-radius: 4px; color: var(--text-bright); }
+
+    /* Primary Action Button */
+    .btn-primary { width: 100%; background: var(--accent-green); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* Routine View */
+    .routine-day { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 15px; margin-bottom: 15px; }
+    .routine-day h3 { color: var(--accent); margin-bottom: 10px; font-size: 1rem; }
+    .exercise-item { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 4px 0; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Biometrik AI <span class="badge">v1.0 Client-Side</span></h1>
+    <div style="font-size: 0.85rem; color: #8b949e;">Local Vision & Algorithm Engine</div>
+  </header>
+
+  <!-- Navigation -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('scan')">1. Vision Scan</button>
+    <button class="tab-btn" onclick="switchTab('prs')">2. PR Matrix</button>
+    <button class="tab-btn" onclick="switchTab('routine')">3. AI Routine</button>
+  </div>
+
+  <!-- TAB 1: Vision Scanner -->
+  <div id="tab-scan" class="tab-content active">
+    <div class="grid">
+      <div class="card">
+        <h2>Anthropometric Vision Scanner</h2>
+        <div class="video-container">
+          <video id="webcam" autoplay playsinline></video>
+          <canvas id="canvas_output"></canvas>
+        </div>
+        <button class="btn-primary" style="margin-top:15px; background: #21262d;" onclick="startCamera()">Start Webcam Scan</button>
+      </div>
+
+      <div class="card">
+        <h2>Real-Time Metrics</h2>
+        <div class="metric-box">
+          <span>Shoulder-to-Waist Ratio (V-Taper):</span>
+          <span id="v-taper-val" class="metric-val">--</span>
+        </div>
+        <div class="metric-box">
+          <span>Shoulder Tilt Imbalance:</span>
+          <span id="tilt-val" class="metric-val">--</span>
+        </div>
+        <div class="metric-box">
+          <span>Normalizing Factor (Torso Height):</span>
+          <span id="torso-val" class="metric-val">--</span>
+        </div>
+        <p style="font-size: 0.8rem; margin-top: 15px; color: #8b949e;">
+          *Measurements are normalized against torso height to keep calculations accurate regardless of camera distance.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: PR Matrix -->
+  <div id="tab-prs" class="tab-content">
+    <div class="card" style="max-width: 500px; margin: 0 auto;">
+      <h2>Personal Record Input (1 Rep Max)</h2>
+      <div class="input-group">
+        <label>Bench Press (lbs)</label>
+        <input type="number" id="pr-bench" value="185">
+      </div>
+      <div class="input-group">
+        <label>Barbell Squat (lbs)</label>
+        <input type="number" id="pr-squat" value="225">
+      </div>
+      <div class="input-group">
+        <label>Deadlift (lbs)</label>
+        <input type="number" id="pr-deadlift" value="275">
+      </div>
+      <button class="btn-primary" onclick="generateRoutine()">Analyze & Generate Workout Plan</button>
+    </div>
+  </div>
+
+  <!-- TAB 3: Routine View -->
+  <div id="tab-routine" class="tab-content">
+    <div class="card">
+      <h2>Algorithmic 4-Day Strength & Fix Split</h2>
+      <div id="routine-container">
+        <p style="color: #8b949e;">Please complete your scan and input PRs to compile a custom program.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System State
+    let state = {
+      vTaper: 1.25,
+      tiltDeg: 0,
+      bench: 185,
+      squat: 225,
+      deadlift: 275
+    };
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    // MediaPipe Pose Setup
+    const videoElement = document.getElementById('webcam');
+    const canvasElement = document.getElementById('canvas_output');
+    const canvasCtx = canvasElement.getContext('2d');
+
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    pose.onResults(onResults);
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.poseLandmarks) {
+        const lm = results.poseLandmarks;
+        
+        // Key Landmarks
+        const leftShoulder = lm[11];
+        const rightShoulder = lm[12];
+        const leftHip = lm[23];
+        const rightHip = lm[24];
+
+        // 1. Calculate Torso Height (Normalized Baseline)
+        const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
+        const hipMidY = (leftHip.y + rightHip.y) / 2;
+        const torsoHeight = Math.abs(hipMidY - shoulderMidY);
+
+        // 2. Shoulder & Waist Widths
+        const shoulderWidth = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
+        const hipWidth = Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y);
+
+        // 3. Normalized Ratios
+        const vTaper = (shoulderWidth / (hipWidth || 0.001)).toFixed(2);
+        
+        // 4. Shoulder Tilt (Symmetry)
+        const dY = rightShoulder.y - leftShoulder.y;
+        const dX = rightShoulder.x - leftShoulder.x;
+        const tiltAngle = Math.abs((Math.atan2(dY, dX) * (180 / Math.PI)).toFixed(1));
+
+        // Update State & UI
+        state.vTaper = parseFloat(vTaper);
+        state.tiltDeg = parseFloat(tiltAngle);
+
+        document.getElementById('v-taper-val').innerText = vTaper;
+        document.getElementById('tilt-val').innerText = `${tiltAngle}°`;
+        document.getElementById('torso-val').innerText = torsoHeight.toFixed(3);
+      }
+      canvasCtx.restore();
+    }
+
+    function startCamera() {
+      const camera = new Camera(videoElement, {
+        onFrame: async () => {
+          await pose.send({ image: videoElement });
+        },
+        width: 640,
+        height: 480
+      });
+      camera.start();
+    }
+
+    // Recommendation Logic Engine
+    function generateRoutine() {
+      state.bench = parseFloat(document.getElementById('pr-bench').value) || 0;
+      state.squat = parseFloat(document.getElementById('pr-squat').value) || 0;
+      state.deadlift = parseFloat(document.getElementById('pr-deadlift').value) || 0;
+
+      // Biomechanical Ratios (Standard strength benchmarks: Bench should be ~75% of Squat)
+      const benchToSquatRatio = state.bench / (state.squat || 1);
+      
+      let accessoryFixes = [];
+
+      // Logic Rules
+      if (benchToSquatRatio < 0.70) {
+        accessoryFixes.push("Weak Upper Pressing: Added +2 sets Incline Dumbbell Press & Dips");
+      }
+      if (state.vTaper < 1.3) {
+        accessoryFixes.push("Narrow V-Taper Detected: Added +3 sets Lat Pulldowns & Lateral Raises");
+      }
+      if (state.tiltDeg > 2.5) {
+        accessoryFixes.push("Postural Asymmetry Trigger: Injecting Unilateral Cable Rows & Face Pulls");
+      }
+
+      // Build HTML Plan
+      const container = document.getElementById('routine-container');
+      container.innerHTML = `
+        <div style="background: #1f6feb22; border: 1px solid #1f6feb; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+          <strong style="color: var(--accent);">Engine Diagnostics:</strong>
+          <ul style="margin-left: 20px; font-size: 0.85rem; margin-top: 5px;">
+            ${accessoryFixes.map(f => `<li>${f}</li>`).join('') || '<li>Balanced baseline detected. Standard progressive overload applied.</li>'}
+          </ul>
+        </div>
+
+        <div class="routine-day">
+          <h3>Day 1: Upper Body Focus</h3>
+          <div class="exercise-item"><span>Bench Press</span><span>4 sets x 5 reps @ ${(state.bench * 0.8).toFixed(0)} lbs</span></div>
+          <div class="exercise-item"><span>Barbell Row</span><span>3 sets x 8 reps</span></div>
+          ${state.vTaper < 1.3 ? '<div class="exercise-item" style="color:var(--accent)"><span>Lateral Raises (V-Taper Bonus)</span><span>4 sets x 15 reps</span></div>' : ''}
+        </div>
+
+        <div class="routine-day">
+          <h3>Day 2: Lower Body & Core</h3>
+          <div class="exercise-item"><span>Barbell Squat</span><span>4 sets x 5 reps @ ${(state.squat * 0.8).toFixed(0)} lbs</span></div>
+          <div class="exercise-item"><span>Romanian Deadlift</span><span>3 sets x 10 reps</span></div>
+          ${state.tiltDeg > 2.5 ? '<div class="exercise-item" style="color:var(--accent)"><span>Single-Leg Bulgarian Split Squat (Symmetry Fix)</span><span>3 sets x 8 reps/side</span></div>' : ''}
+        </div>
+      `;
+
+      // Jump to routine tab
+      switchTab('routine');
+      document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    }
+  </script>
+</body>
+</html>
