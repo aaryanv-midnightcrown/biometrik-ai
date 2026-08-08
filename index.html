@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Biometrik AI — Computer Vision & Training Engine</title>
+  <title>Biometrik AI — Neat, Intelligent Analytics</title>
   
-  <!-- MediaPipe & Vision CDN Dependencies -->
+  <!-- MediaPipe Pose CDN Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   
@@ -16,145 +16,280 @@
       --border: #30363d;
       --accent: #58a6ff;
       --accent-green: #238636;
+      --accent-orange: #f89e1a; /* Stabilizing color */
       --text: #c9d1d9;
       --text-bright: #ffffff;
+      --ui-ease: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 20px; }
+    body { background-color: var(--bg); color: var(--text); overflow-x: hidden; }
 
-    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-    h1 { color: var(--text-bright); font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
-    .badge { background: #1f6feb; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; }
+    /* --- View Management (Transitions) --- */
+    .view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; transition: opacity 0.4s var(--ui-ease), transform 0.4s var(--ui-ease); opacity: 0; transform: translateY(20px); }
+    .view.active { display: flex; flex-direction: column; opacity: 1; transform: translateY(0px); }
 
-    /* Layout Navigation */
-    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-    .tab-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    .tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); font-weight: bold; }
+    /* --- Header UI (Main App Views) --- */
+    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid var(--border); background: #0d1117; z-index: 10; }
+    header h1 { color: var(--text-bright); font-size: 1.25rem; display: flex; align-items: center; gap: 8px; }
+    .badge { background: #1f6feb; color: white; font-size: 0.7rem; padding: 1px 6px; border-radius: 12px; }
 
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    /* Tab Styling */
+    .nav-tabs { display: flex; gap: 10px; margin-right: 20px; }
+    .tab-btn { background: transparent; border: 1px solid transparent; color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.9rem;}
+    .tab-btn.active { background: var(--card-bg); border-color: var(--border); color: var(--text-bright); font-weight: 600; }
 
-    /* Dashboard Grid */
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
-    .card h2 { color: var(--text-bright); font-size: 1.1rem; margin-bottom: 15px; }
+    /* --- Standard Layout & Grid --- */
+    .app-content { flex: 1; padding: 20px 30px; overflow-y: auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; transition: border-color 0.3s; }
+    .card.highlight-green { border-color: var(--accent-green); }
+    .card.highlight-orange { border-color: var(--accent-orange); }
+    .card h2 { color: var(--text-bright); font-size: 1rem; margin-bottom: 15px; font-weight: 600;}
 
-    /* Vision Scanner UI */
+    /* --- 1. HOME VIEW (Simplistic, Neat Page) --- */
+    #view-home { background: radial-gradient(circle at 50% 50%, #161b22 0%, #0d1117 100%); justify-content: center; align-items: center; text-align: center; }
+    #view-home h1 { font-size: 2.5rem; font-weight: 800; color: #fff; margin-bottom: 10px; }
+    #view-home p { color: #8b949e; font-size: 1rem; max-width: 400px; margin-bottom: 30px; line-height: 1.5; }
+
+    /* Simplistic Background Particles (Ambient Movement every 5s) */
+    .ambient-grid { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0.2; background-size: 30px 30px; background-image: radial-gradient(#30363d 1px, transparent 1px); }
+    
+    @keyframes constellation { 
+      0%, 100% { transform: translate(0, 0); opacity: 0.2; }
+      50% { transform: translate(5px, -5px); opacity: 0.3; } 
+    }
+    .ambient-move { animation: constellation 10s var(--ui-ease) infinite; }
+
+    /* --- 2. SCAN VIEW (Vision, Stabilization, Closed Screen) --- */
     .video-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 6px; overflow: hidden; }
     video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
 
-    .metric-box { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .metric-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
     .metric-val { color: var(--accent); font-weight: bold; }
+    
+    /* Stabilizing Indicator */
+    #stabilizing-overlay { display: none; flex-direction: column; justify-content: center; align-items: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; z-index: 5; text-align: center; }
+    .progress-bar { width: 60%; height: 6px; background: #30363d; border-radius: 10px; margin-top: 15px; overflow: hidden; }
+    .progress-fill { width: 0%; height: 100%; background: var(--accent-orange); transition: width 0.2s; }
+    #overlay-text { font-size: 1rem; font-weight: bold; margin-bottom: 5px; }
+    
+    /* Closing Summary Screen */
+    #closing-summary { display: none; text-align: center; padding: 20px;}
+    #closing-summary h2 { color: var(--accent-green); font-size: 1.25rem; margin-bottom: 10px;}
 
-    /* Input Matrix */
-    .input-group { margin-bottom: 15px; }
-    .input-group label { display: block; margin-bottom: 5px; font-size: 0.85rem; }
-    .input-group input { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid var(--border); border-radius: 4px; color: var(--text-bright); }
+    /* --- 3. PR VIEW (Input Grid, N/A options) --- */
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; margin-bottom: 6px; font-size: 0.8rem; color: #8b949e; }
+    
+    /* Select/Dropdown Styling */
+    .neat-select { 
+      width: 100%; 
+      padding: 10px 14px; 
+      background: #0d1117; 
+      border: 1px solid var(--border); 
+      border-radius: 6px; 
+      color: var(--text-bright); 
+      font-size: 0.95rem; 
+      appearance: none; 
+      cursor: pointer; 
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2330363d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      background-size: 16px;
+    }
+    .neat-select:focus { outline: none; border-color: var(--accent); }
 
-    /* Primary Action Button */
-    .btn-primary { width: 100%; background: var(--accent-green); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
-    .btn-primary:hover { opacity: 0.9; }
+    /* --- 4. ROUTINE VIEW (Generated Split) --- */
+    .routine-day { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 18px; margin-bottom: 20px; transition: transform 0.2s; }
+    .routine-day:hover { transform: translateX(2px); border-color: var(--accent); }
+    .routine-day h3 { color: var(--accent); margin-bottom: 12px; font-size: 1rem; }
+    .ex-item { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 6px 0; border-bottom: 1px solid #161b22; }
+    .ex-item:last-child { border-bottom: none; }
+    .ex-weight { color: #8b949e; }
+    .ex-accent { color: var(--accent-green); font-weight: 500;}
 
-    /* Routine View */
-    .routine-day { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 15px; margin-bottom: 15px; }
-    .routine-day h3 { color: var(--accent); margin-bottom: 10px; font-size: 1rem; }
-    .exercise-item { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 4px 0; }
+    /* --- Global Elements (Buttons) --- */
+    .btn-main { padding: 12px 24px; border-radius: 6px; border: 1px solid #30363d; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: 0.2s var(--ui-ease); text-transform: uppercase; letter-spacing: 0.5px;}
+    .btn-green { background: var(--accent-green); color: white; border-color: #2da44e; }
+    .btn-green:hover { background: #2da44e; box-shadow: 0 4px 12px rgba(45, 164, 78, 0.3); }
+    
+    .btn-tab-switch { width: 100%; border: 1px solid var(--border); color: #fff; background: #21262d; margin-top: 15px;}
+    .btn-tab-switch:hover { background: #30363d; border-color: #8b949e; }
+
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Biometrik AI <span class="badge">v1.0 Client-Side</span></h1>
-    <div style="font-size: 0.85rem; color: #8b949e;">Local Vision & Algorithm Engine</div>
+  <!-- ========================================================================= -->
+  <!-- 1. HOME VIEW (Simplistic, Ambient Background) -->
+  <!-- ========================================================================= -->
+  <div id="view-home" class="view active">
+    <div class="ambient-grid ambient-move"></div>
+    <h1>Biometrik AI</h1>
+    <p>Neat, algorithmic biomechanical analysis. Scan, evaluate, and prioritize training via computer vision and relative strength math.</p>
+    <button class="btn-main btn-green" onclick="appSwitchTab('scan')">Get Started</button>
+  </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- Header (Visible for Scan, PR, Routine views) -->
+  <!-- ========================================================================= -->
+  <header style="display: none;" id="main-header">
+    <h1>Biometrik AI <span class="badge">v1.1 Stable-Scan</span></h1>
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="btn-scan" onclick="appSwitchTab('scan')">1. Scan</button>
+      <button class="tab-btn" id="btn-prs" onclick="appSwitchTab('prs')">2. PR Matrix</button>
+      <button class="tab-btn" id="btn-routine" onclick="appSwitchTab('routine')">3. Generated Routine</button>
+    </div>
   </header>
 
-  <!-- Navigation -->
-  <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('scan')">1. Vision Scan</button>
-    <button class="tab-btn" onclick="switchTab('prs')">2. PR Matrix</button>
-    <button class="tab-btn" onclick="switchTab('routine')">3. AI Routine</button>
+
+  <!-- ========================================================================= -->
+  <!-- 2. SCAN VIEW (Live Video, Automatic Stop, Closed Screen) -->
+  <!-- ========================================================================= -->
+  <div id="view-scan" class="view">
+    <div class="app-content app-content-center">
+      <div class="grid">
+        <div class="card" id="scanner-card">
+          <h2>Vision Scanner</h2>
+          <div class="video-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="canvas_output"></canvas>
+            
+            <!-- STABILIZING OVERLAY (Automatic Stop Timer) -->
+            <div id="stabilizing-overlay">
+              <div id="overlay-text">STABILIZING POSE...</div>
+              <div style="font-size:0.8rem; color: #8b949e">Hold steady. Analyzing consistency.</div>
+              <div class="progress-bar"><div class="progress-fill" id="stabilize-progress"></div></div>
+            </div>
+            
+            <!-- CLOSED SUMMARY SCREEN (Shown after auto-stop) -->
+            <div id="closing-summary" class="video-container" style="display: none; background: #0d1117;">
+              <h2>Scan Stabilized & Complete</h2>
+              <p style="color: #8b949e; margin-bottom: 15px; font-size: 0.9rem;">Your anatomical baseline has been locked. Proceed to enter your performance records.</p>
+              <div class="grid" style="grid-template-columns: 1fr 1fr; border-top: 1px solid #161b22; padding-top: 15px;">
+                <div class="metric-row"><span>Final V-Taper:</span><span id="final-vtaper" class="metric-val ex-accent">--</span></div>
+                <div class="metric-row"><span>Final Symmetry (Tilt):</span><span id="final-tilt" class="metric-val ex-accent">--</span></div>
+              </div>
+              <button class="btn-main btn-tab-switch" onclick="appSwitchTab('prs')">Next: PR Matrix</button>
+            </div>
+
+          </div>
+          <button class="btn-main btn-green" style="margin-top:15px; width:100%" id="btn-start-camera" onclick="startCamera()">Start Webcam Scan</button>
+        </div>
+
+        <div class="card" id="metrics-card">
+          <h2>Live Normalization Metrics</h2>
+          <div class="metric-row"><span>Shoulder-to-Waist Ratio (V-Taper):</span><span id="v-taper-val" class="metric-val">--</span></div>
+          <div class="metric-row"><span>Shoulder Tilt Symmetry:</span><span id="tilt-val" class="metric-val">--</span></div>
+          <div class="metric-row"><span>Baseline (Torso Height):</span><span id="torso-val" class="metric-val">--</span></div>
+          <p style="font-size: 0.8rem; margin-top: 20px; color: #8b949e;">
+            *Calculations use localized geometry, normalized against torso height to keep measurements stable regardless of camera depth.
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- TAB 1: Vision Scanner -->
-  <div id="tab-scan" class="tab-content active">
-    <div class="grid">
+
+  <!-- ========================================================================= -->
+  <!-- 3. PR VIEW (Matrix Input with N/A) -->
+  <!-- ========================================================================= -->
+  <div id="view-prs" class="view">
+    <div class="app-content">
+      <div class="card" style="max-width: 500px; margin: 0 auto;">
+        <h2>Performance Record Matrix (1 Rep Max)</h2>
+        <p style="color: #8b949e; font-size: 0.85rem; margin-bottom: 20px;">Provide estimated maximums. If you have not performed these lifts, select 'Not Applicable (N/A)' for a safer introductory protocol.</p>
+        
+        <div class="form-group">
+          <label>Bench Press (Upper Body Push)</label>
+          <select id="pr-bench" class="neat-select">
+            <option value="na">Not Applicable (N/A)</option>
+            <option value="135">135 lbs</option>
+            <option value="185">185 lbs (Benchmark)</option>
+            <option value="225">225 lbs</option>
+            <option value="275">275 lbs</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Barbell Squat (Lower Body Push)</label>
+          <select id="pr-squat" class="neat-select">
+            <option value="na">Not Applicable (N/A)</option>
+            <option value="185">185 lbs</option>
+            <option value="225">225 lbs (Benchmark)</option>
+            <option value="275">275 lbs</option>
+            <option value="315">315 lbs</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Deadlift (Lower Body Pull)</label>
+          <select id="pr-deadlift" class="neat-select">
+            <option value="na">Not Applicable (N/A)</option>
+            <option value="225">225 lbs</option>
+            <option value="275">275 lbs (Benchmark)</option>
+            <option value="315">315 lbs</option>
+            <option value="405">405 lbs</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+
+        <button class="btn-main btn-green" style="width:100%; margin-top:10px;" onclick="generateRoutine()">Analyze & Generate Routine</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- 4. ROUTINE VIEW (Dynamic Output) -->
+  <!-- ========================================================================= -->
+  <div id="view-routine" class="view">
+    <div class="app-content">
       <div class="card">
-        <h2>Anthropometric Vision Scanner</h2>
-        <div class="video-container">
-          <video id="webcam" autoplay playsinline></video>
-          <canvas id="canvas_output"></canvas>
+        <h2>Algorithmic 4-Day Structural Development Split</h2>
+        <div id="routine-container">
+          <p style="color: #8b949e;">Please complete the Scan and PR Matrix to lock your diagnostics and compile a dynamic program.</p>
         </div>
-        <button class="btn-primary" style="margin-top:15px; background: #21262d;" onclick="startCamera()">Start Webcam Scan</button>
-      </div>
-
-      <div class="card">
-        <h2>Real-Time Metrics</h2>
-        <div class="metric-box">
-          <span>Shoulder-to-Waist Ratio (V-Taper):</span>
-          <span id="v-taper-val" class="metric-val">--</span>
-        </div>
-        <div class="metric-box">
-          <span>Shoulder Tilt Imbalance:</span>
-          <span id="tilt-val" class="metric-val">--</span>
-        </div>
-        <div class="metric-box">
-          <span>Normalizing Factor (Torso Height):</span>
-          <span id="torso-val" class="metric-val">--</span>
-        </div>
-        <p style="font-size: 0.8rem; margin-top: 15px; color: #8b949e;">
-          *Measurements are normalized against torso height to keep calculations accurate regardless of camera distance.
-        </p>
       </div>
     </div>
   </div>
 
-  <!-- TAB 2: PR Matrix -->
-  <div id="tab-prs" class="tab-content">
-    <div class="card" style="max-width: 500px; margin: 0 auto;">
-      <h2>Personal Record Input (1 Rep Max)</h2>
-      <div class="input-group">
-        <label>Bench Press (lbs)</label>
-        <input type="number" id="pr-bench" value="185">
-      </div>
-      <div class="input-group">
-        <label>Barbell Squat (lbs)</label>
-        <input type="number" id="pr-squat" value="225">
-      </div>
-      <div class="input-group">
-        <label>Deadlift (lbs)</label>
-        <input type="number" id="pr-deadlift" value="275">
-      </div>
-      <button class="btn-primary" onclick="generateRoutine()">Analyze & Generate Workout Plan</button>
-    </div>
-  </div>
 
-  <!-- TAB 3: Routine View -->
-  <div id="tab-routine" class="tab-content">
-    <div class="card">
-      <h2>Algorithmic 4-Day Strength & Fix Split</h2>
-      <div id="routine-container">
-        <p style="color: #8b949e;">Please complete your scan and input PRs to compile a custom program.</p>
-      </div>
-    </div>
-  </div>
-
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT LOGIC ENGINE -->
+  <!-- ========================================================================= -->
   <script>
     // System State
-    let state = {
+    let systemState = {
+      isScanLive: false,
+      isStabilized: false,
       vTaper: 1.25,
       tiltDeg: 0,
-      bench: 185,
-      squat: 225,
-      deadlift: 275
+      bench: 'na',
+      squat: 'na',
+      deadlift: 'na'
     };
 
-    function switchTab(tabName) {
+    // Global View Management
+    function appSwitchTab(viewName) {
+      // Hide home/header logic
+      if (viewName === 'scan' || viewName === 'prs' || viewName === 'routine') {
+        document.getElementById('main-header').style.display = 'flex';
+        document.getElementById('view-home').classList.remove('active');
+      }
+
+      // Deactivate all views and tabs
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      
-      event.target.classList.add('active');
-      document.getElementById('tab-' + tabName).classList.add('active');
+
+      // Activate selected
+      document.getElementById('view-' + viewName).classList.add('active');
+      const btn = document.getElementById('btn-' + viewName);
+      if(btn) btn.classList.add('active');
     }
 
     // MediaPipe Pose Setup
@@ -166,16 +301,19 @@
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
 
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-
+    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     pose.onResults(onResults);
 
+    // --- Automatic Scan Termination Logic ---
+    let stabilizationHistory = [];
+    const HISTORY_LENGTH = 30; // Check last 30 frames
+    const STABILIZATION_THRESHOLD = 0.008; // Std Deviation max allowable variation
+    const FRAMES_TO_CONFIRM = 15; // Consecutive 'good' frames required
+    let consecutiveGoodFrames = 0;
+
     function onResults(results) {
+      if (!systemState.isScanLive || systemState.isStabilized) return;
+
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -183,102 +321,188 @@
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks;
         
-        // Key Landmarks
-        const leftShoulder = lm[11];
-        const rightShoulder = lm[12];
-        const leftHip = lm[23];
-        const rightHip = lm[24];
+        const leftShoulder = lm[11], rightShoulder = lm[12];
+        const leftHip = lm[23], rightHip = lm[24];
 
         // 1. Calculate Torso Height (Normalized Baseline)
-        const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
-        const hipMidY = (leftHip.y + rightHip.y) / 2;
-        const torsoHeight = Math.abs(hipMidY - shoulderMidY);
-
-        // 2. Shoulder & Waist Widths
+        const torsoHeight = Math.abs((leftHip.y + rightHip.y)/2 - (leftShoulder.y + rightShoulder.y)/2);
+        
+        // 2. Normalized Widths & V-Taper Ratio
         const shoulderWidth = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
         const hipWidth = Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y);
-
-        // 3. Normalized Ratios
         const vTaper = (shoulderWidth / (hipWidth || 0.001)).toFixed(2);
         
-        // 4. Shoulder Tilt (Symmetry)
-        const dY = rightShoulder.y - leftShoulder.y;
-        const dX = rightShoulder.x - leftShoulder.x;
-        const tiltAngle = Math.abs((Math.atan2(dY, dX) * (180 / Math.PI)).toFixed(1));
+        // 3. Symmetry (Shoulder Tilt Degree)
+        const tiltAngle = Math.abs((Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x) * (180 / Math.PI)).toFixed(1));
 
-        // Update State & UI
-        state.vTaper = parseFloat(vTaper);
-        state.tiltDeg = parseFloat(tiltAngle);
-
+        // Update State & UI (Normalized measurements)
+        systemState.vTaper = parseFloat(vTaper);
+        systemState.tiltDeg = parseFloat(tiltAngle);
         document.getElementById('v-taper-val').innerText = vTaper;
         document.getElementById('tilt-val').innerText = `${tiltAngle}°`;
         document.getElementById('torso-val').innerText = torsoHeight.toFixed(3);
+
+        // --- Algorithmic Stabilization Check ---
+        checkStabilization(systemState.vTaper);
       }
       canvasCtx.restore();
     }
 
+    function checkStabilization(currentVTaper) {
+      stabilizationHistory.push(currentVTaper);
+      if (stabilizationHistory.length > HISTORY_LENGTH) stabilizationHistory.shift();
+
+      if (stabilizationHistory.length === HISTORY_LENGTH) {
+        // Calculate Standard Deviation of last 30 frames
+        const mean = stabilizationHistory.reduce((a, b) => a + b) / HISTORY_LENGTH;
+        const stdDev = Math.sqrt(stabilizationHistory.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / HISTORY_LENGTH);
+
+        const overlay = document.getElementById('stabilizing-overlay');
+        const fill = document.getElementById('stabilize-progress');
+        const scannerCard = document.getElementById('scanner-card');
+
+        // Logic check: If variation is low (meaning user is holding pose)
+        if (stdDev < STABILIZATION_THRESHOLD) {
+          consecutiveGoodFrames++;
+          overlay.style.display = 'flex';
+          scannerCard.classList.add('highlight-orange');
+
+          // Progress bar based on frames needed to confirm
+          const progressPercent = (consecutiveGoodFrames / FRAMES_TO_CONFIRM) * 100;
+          fill.style.width = `${progressPercent}%`;
+
+          // Check if stable for required duration
+          if (consecutiveGoodFrames >= FRAMES_TO_CONFIRM) {
+            autoEndScan(); // Termination
+          }
+        } else {
+          // User moved too much, reset count
+          consecutiveGoodFrames = 0;
+          overlay.style.display = 'none';
+          fill.style.width = '0%';
+          scannerCard.classList.remove('highlight-orange');
+        }
+      }
+    }
+
     function startCamera() {
+      systemState.isScanLive = true;
+      systemState.isStabilized = false;
+      stabilizationHistory = []; // Reset history
+      consecutiveGoodFrames = 0;
+      document.getElementById('btn-start-camera').style.display = 'none';
+      document.getElementById('metrics-card').style.opacity = 1;
+
       const camera = new Camera(videoElement, {
-        onFrame: async () => {
-          await pose.send({ image: videoElement });
-        },
-        width: 640,
-        height: 480
+        onFrame: async () => { if(systemState.isScanLive) await pose.send({ image: videoElement }); },
+        width: 640, height: 480
       });
       camera.start();
     }
 
-    // Recommendation Logic Engine
-    function generateRoutine() {
-      state.bench = parseFloat(document.getElementById('pr-bench').value) || 0;
-      state.squat = parseFloat(document.getElementById('pr-squat').value) || 0;
-      state.deadlift = parseFloat(document.getElementById('pr-deadlift').value) || 0;
-
-      // Biomechanical Ratios (Standard strength benchmarks: Bench should be ~75% of Squat)
-      const benchToSquatRatio = state.bench / (state.squat || 1);
+    function autoEndScan() {
+      // 1. Programmatically kill camera/pose processing
+      systemState.isScanLive = false;
+      systemState.isStabilized = true;
+      videoElement.pause(); // Stop video stream visually
       
-      let accessoryFixes = [];
+      // 2. Clear UI overlays
+      document.getElementById('stabilizing-overlay').style.display = 'none';
+      document.getElementById('scanner-card').classList.remove('highlight-orange');
+      document.getElementById('scanner-card').classList.add('highlight-green');
 
-      // Logic Rules
-      if (benchToSquatRatio < 0.70) {
-        accessoryFixes.push("Weak Upper Pressing: Added +2 sets Incline Dumbbell Press & Dips");
+      // 3. Show Closing Summary Screen
+      document.getElementById('canvas_output').style.display = 'none';
+      document.getElementById('webcam').style.display = 'none';
+      document.getElementById('closing-summary').style.display = 'flex';
+
+      // Lock final metrics
+      document.getElementById('final-vtaper').innerText = systemState.vTaper;
+      document.getElementById('final-tilt').innerText = `${systemState.tiltDeg}°`;
+    }
+
+
+    // =========================================================================
+    // Dynamic Recommendation Logic Engine
+    // =========================================================================
+    function generateRoutine() {
+      // Collect inputs from Select Matrix
+      systemState.bench = document.getElementById('pr-bench').value;
+      systemState.squat = document.getElementById('pr-squat').value;
+      systemState.deadlift = document.getElementById('pr-deadlift').value;
+
+      let diagnosisAlerts = [];
+      let trainingTier = 'introductory'; // Default if inputs are N/A
+
+      // Diagnostic & Volume Routing Rules
+      if (systemState.vTaper < 1.3) {
+        diagnosisAlerts.push("Priority: Lateral Deltoid/Latissimus Volume (Narrow V-Taper detected).");
       }
-      if (state.vTaper < 1.3) {
-        accessoryFixes.push("Narrow V-Taper Detected: Added +3 sets Lat Pulldowns & Lateral Raises");
-      }
-      if (state.tiltDeg > 2.5) {
-        accessoryFixes.push("Postural Asymmetry Trigger: Injecting Unilateral Cable Rows & Face Pulls");
+      if (systemState.tiltDeg > 2.5) {
+        diagnosisAlerts.push("Priority: Unilateral Stabilization (Structural Asymmetry found).");
       }
 
-      // Build HTML Plan
+      // Check for advanced math eligibility (Is there any data?)
+      if (systemState.bench !== 'na' && systemState.squat !== 'na') {
+        const benchToSquatRatio = parseFloat(systemState.bench) / parseFloat(systemState.squat);
+        trainingTier = 'intermediate';
+
+        if (benchToSquatRatio < 0.70) {
+          diagnosisAlerts.push("Priority: Antagonistic Muscle Balancing (Weak Upper Pressing relative to Lower Body). Added Vertical Pressing volume.");
+        }
+      } else {
+        diagnosisAlerts.push("Tier Locked: Introductory Protocol. Inputs suggest N/A or missing performance data; focusing on adaptation and safe technique.");
+      }
+
+      // Generate Routine UI
       const container = document.getElementById('routine-container');
       container.innerHTML = `
-        <div style="background: #1f6feb22; border: 1px solid #1f6feb; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
-          <strong style="color: var(--accent);">Engine Diagnostics:</strong>
-          <ul style="margin-left: 20px; font-size: 0.85rem; margin-top: 5px;">
-            ${accessoryFixes.map(f => `<li>${f}</li>`).join('') || '<li>Balanced baseline detected. Standard progressive overload applied.</li>'}
+        <div style="background: #1f6feb11; border: 1px solid #1f6feb66; padding: 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem;">
+          <strong style="color: var(--accent);">Biomechanical Diagnostic Output:</strong>
+          <ul style="margin-left: 20px; margin-top: 5px;">
+            ${diagnosisAlerts.map(a => `<li>${a}</li>`).join('') || '<li>Balanced baseline. Primary Protocol assigned.</li>'}
           </ul>
         </div>
 
-        <div class="routine-day">
-          <h3>Day 1: Upper Body Focus</h3>
-          <div class="exercise-item"><span>Bench Press</span><span>4 sets x 5 reps @ ${(state.bench * 0.8).toFixed(0)} lbs</span></div>
-          <div class="exercise-item"><span>Barbell Row</span><span>3 sets x 8 reps</span></div>
-          ${state.vTaper < 1.3 ? '<div class="exercise-item" style="color:var(--accent)"><span>Lateral Raises (V-Taper Bonus)</span><span>4 sets x 15 reps</span></div>' : ''}
-        </div>
-
-        <div class="routine-day">
-          <h3>Day 2: Lower Body & Core</h3>
-          <div class="exercise-item"><span>Barbell Squat</span><span>4 sets x 5 reps @ ${(state.squat * 0.8).toFixed(0)} lbs</span></div>
-          <div class="exercise-item"><span>Romanian Deadlift</span><span>3 sets x 10 reps</span></div>
-          ${state.tiltDeg > 2.5 ? '<div class="exercise-item" style="color:var(--accent)"><span>Single-Leg Bulgarian Split Squat (Symmetry Fix)</span><span>3 sets x 8 reps/side</span></div>' : ''}
-        </div>
+        ${buildTrainingPlan(trainingTier)}
       `;
 
       // Jump to routine tab
-      switchTab('routine');
-      document.querySelectorAll('.tab-btn')[2].classList.add('active');
+      appSwitchTab('routine');
     }
+
+    // Dynamic Helper to build the daily plan based on 'na' analysis
+    function buildTrainingPlan(tier) {
+      // Helper function to format main lifts based on tier (N/A vs Number)
+      const formatLift = (prVal, sets, reps, intensity) => {
+        if (prVal === 'na') {
+          return `<span class="ex-accent">Starter Weight</span> (${intensity})`; // Introductory Safe Route
+        } else {
+          const pr = parseFloat(prVal);
+          return `${(pr * 0.75).toFixed(0)} lbs (${reps} Reps) x ${sets} Sets`; // Linear Math Route
+        }
+      };
+
+      return `
+        <div class="routine-day">
+          <h3>Day 1: Upper Body Focus (Linear Push/Pull)</h3>
+          <div class="ex-item"><span>Barbell Bench Press</span><span class="ex-weight">${formatLift(systemState.bench, 4, 8, 'RPE 6')}</span></div>
+          <div class="ex-item"><span>Neutral Grip Cable Row</span><span class="ex-weight">3 sets x 10 reps</span></div>
+          <div class="ex-item"><span>Dumbbell Overhead Press</span><span class="ex-weight">3 sets x 10 reps</span></div>
+          ${systemState.vTaper < 1.3 ? '<div class="ex-item ex-accent"><span>Lateral Raises (V-Taper Bonus)</span><span>4 sets x 15 reps</span></div>' : ''}
+          ${systemState.tiltDeg > 2.5 ? '<div class="ex-item ex-accent"><span>Single-Arm Face Pulls (Symmetry Fix)</span><span>3 sets x 12 reps/side</span></div>' : ''}
+        </div>
+
+        <div class="routine-day">
+          <h3>Day 2: Lower Body Development</h3>
+          <div class="ex-item"><span>Barbell Squat</span><span class="ex-weight">${formatLift(systemState.squat, 3, 8, 'RPE 6')}</span></div>
+          <div class="ex-item"><span>Romanian Deadlift</span><span class="ex-weight">3 sets x 10 reps</span></div>
+          ${systemState.tiltDeg > 2.5 ? '<div class="ex-item ex-accent"><span>Single-Leg Bulgarian Split Squat (Symmetry Fix)</span><span>3 sets x 8 reps/side</span></div>' : ''}
+          <div class="ex-item"><span>Plank Hold (Core Stability)</span><span class="ex-weight">3 sets x 30 sec</span></div>
+        </div>
+      `;
+    }
+
   </script>
 </body>
 </html>
